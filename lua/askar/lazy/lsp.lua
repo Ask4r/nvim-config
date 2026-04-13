@@ -22,12 +22,20 @@ return {
             vim.lsp.protocol.make_client_capabilities(),
             cmp_lsp.default_capabilities())
 
-        require("fidget").setup({})
+        require("fidget").setup({
+            notification = {
+                window = {
+                    winblend = 0
+                }
+            }
+        })
+
         require("mason").setup()
         require("mason-lspconfig").setup({
             ensure_installed = {
                 "lua_ls",
                 "gopls",
+                "clangd",
             },
             handlers = {
                 function(server_name) -- default handler (optional)
@@ -50,8 +58,52 @@ return {
                         }
                     }
                 end,
+
+                ["clangd"] = function()
+                    local lspconfig = require("lspconfig")
+                    lspconfig.clangd.setup {
+                        capabilities = capabilities,
+                        cmd = {
+                            "clangd",
+                            "--experimental-modules-support",
+                        },
+                        filetypes = { "c", "cpp", "h", "cppm", "cc", "mpp", "ixx", "tpp" },
+                        init_options = {
+                            fallbackFlags = { "--std=c++20" }
+                        },
+                    }
+                end,
             }
         })
+
+        -- Custom servers
+
+        -- local lspconfig = require("lspconfig")
+        -- local mason_bin_dir = vim.fn.stdpath("data") .. "/mason/bin"
+        --
+        -- lspconfig.postgres_lsp.setup {
+        --     capabilities = capabilities,
+        --     cmd = { mason_bin_dir .. "/postgres-language-server", "lsp-proxy" },
+        --     filetypes = { "sql" },
+        --     root_markers = { "postgres-language-server.jsonc" },
+        --     workspace_required = true,
+        --     on_attach = function(client, bufnr)
+        --         vim.keymap.del('i', '<C-C>a', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>L', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>l', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>c', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>v', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>p', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>t', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>s', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>o', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>f', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>k', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>R', { buffer = bufnr })
+        --         vim.keymap.del('i', '<C-C>T', { buffer = bufnr })
+        --     end,
+        -- }
+
 
         local cmp_select = { behavior = cmp.SelectBehavior.Select }
 

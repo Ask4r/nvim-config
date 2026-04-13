@@ -3,10 +3,7 @@ local curr_dirname = function()
 end
 
 local zig_exe_path = function()
-    -- return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/target/debug/", "file")
-    local cwd = vim.fn.getcwd()
-    local exe_path = cwd .. "/zig-out/bin/" .. curr_dirname()
-    return exe_path
+    return vim.fn.getcwd() .. "/zig-out/bin/" .. curr_dirname()
 end
 
 return {
@@ -14,6 +11,7 @@ return {
     dependencies = {
         "leoluz/nvim-dap-go",
         "nicholasmata/nvim-dap-cs",
+        "mfussenegger/nvim-dap-python",
         "rcarriga/nvim-dap-ui",
         "theHamsta/nvim-dap-virtual-text",
         "nvim-neotest/nvim-nio",
@@ -22,14 +20,16 @@ return {
     config = function()
         local dap = require("dap")
         local dapui = require("dapui")
+        local mason_bin_dir = vim.fn.stdpath("data") .. "/mason/bin"
 
         require("dapui").setup()
         require("dap-go").setup()
         require("dap-cs").setup({
             netcoredbg = {
-                path = vim.fn.expand("$HOME/.local/share/nvim/mason/bin/netcoredbg"),
+                path = mason_bin_dir .. "/netcoredbg",
             },
         })
+        require("dap-python").setup("python3")
 
         require("nvim-dap-virtual-text").setup({
             -- This just tries to mitigate the chance that I leak tokens here. Probably won't stop it from happening...
@@ -78,20 +78,29 @@ return {
             }
         end
 
+
         dap.adapters.gdb = {
             type = "executable",
             command = "gdb",
             args = { "--interpreter=dap", "--eval-command", "set print pretty on" }
         }
-
         dap.adapters.codelldb = {
             type = "server",
             port = "${port}",
             executable = {
-                command = vim.fn.expand("$HOME/.local/share/nvim/mason/bin/codelldb"), -- I installed codelldb through mason.nvim
+                command = mason_bin_dir .. "/codelldb", -- I installed codelldb through mason.nvim
                 args = { "--port", "${port}" },
             },
         }
+        -- dap.adapters.debugpy = {
+        --     type = "server",
+        --     port = "${port}",
+        --     executable = {
+        --         command = mason_bin_dir .. "/debugpy",
+        --         args = { "--listen", ":${port}" },
+        --     },
+        -- }
+
 
         dap.configurations.c = {
             {
@@ -103,32 +112,8 @@ return {
                 end,
                 cwd = "${workspaceFolder}",
                 stopAtBeginningOfMainSubprogram = false,
-            },
-            {
-                name = "Select and attach to process",
-                type = "gdb",
-                request = "attach",
-                program = function()
-                    return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-                end,
-                pid = function()
-                    local name = vim.fn.input('Executable name (filter): ')
-                    return require("dap.utils").pick_process({ filter = name })
-                end,
-                cwd = '${workspaceFolder}'
-            },
-            {
-                name = 'Attach to gdbserver :1234',
-                type = 'gdb',
-                request = 'attach',
-                target = 'localhost:1234',
-                program = function()
-                    return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-                end,
-                cwd = '${workspaceFolder}'
-            },
+            }
         }
-
         dap.configurations.zig = {
             {
                 name = "Launch",
@@ -139,6 +124,28 @@ return {
                 stopOnEntry = false,
             },
         }
+        dap.configurations.cpp = {
+            {
+                name = "Launch",
+                type = "codelldb",
+                request = "launch",
+                program = function()
+                    return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+                end,
+                cwd = "${workspaceFolder}",
+                stopOnEntry = false,
+            },
+        }
+        -- dap.configurations.python = {
+        --     {
+        --         name = "Launch",
+        --         type = "debugpy",
+        --         request = "launch",
+        --         program = python_file_path,
+        --         cwd = "${workspaceFolder}",
+        --         stopOnEntry = false,
+        --     },
+        -- }
 
 
         vim.keymap.set("n", "<leader>dt", dap.toggle_breakpoint)
@@ -153,7 +160,7 @@ return {
         vim.keymap.set("n", "<C-[>", dap.step_into)
         vim.keymap.set("n", "<C-]>", dap.step_over)
         vim.keymap.set("n", "<leader>do", dap.step_out)
-        vim.keymap.set("n", "<leader>dsb", dap.step_back)
+        vim.keymap.set("n", "<leader>db", dap.step_back)
         vim.keymap.set("n", "<leader>dr", dap.restart)
 
         dap.listeners.before.attach.dapui_config = function()
